@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+  // If "Remember me" is active, keep session alive
+  if (localStorage.getItem("ivs_logged_in_remember") === "1") {
+    sessionStorage.setItem("ivs_logged_in", "1");
+  }
+
+  // If logout animation is running, do NOT redirect yet
+  const isLoggingOut = sessionStorage.getItem("ivs_logging_out") === "1";
+
+  if (!isLoggingOut && sessionStorage.getItem("ivs_logged_in") !== "1") {
+    location.href = "login.html";
+  }
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Progress Report | Iqra Virtual School</title>
+
+  <!-- Favicon -->
+  <link rel="icon" href="assets/logo.jpg" type="image/jpeg">
+
+  <!-- Fonts + Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Fredericka+the+Great&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Your CSS -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- jsPDF + AutoTable -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+</head>
+
+<body>
+  <!-- Background -->
+  <canvas id="bgParticles" aria-hidden="true"></canvas>
+
+  <div class="ambient" aria-hidden="true">
+    <span class="orb orb--l1"></span>
+    <span class="orb orb--l2"></span>
+    <span class="orb orb--r1"></span>
+    <span class="orb orb--r2"></span>
+    <span class="spark spark--l"></span>
+    <span class="spark spark--r"></span>
+  </div>
+
+  <!-- Main Container -->
+  <div class="container">
+    <!-- Header / Topbar -->
+       <button id="logoutBtn" class="logout-btn" type="button" title="Logout">
+  <i class="fa-solid fa-right-from-bracket"></i>
+  Logout
+</button>
+    <header class="topbar">
+      <div class="topbar__inner">
+        <div class="brand">
+          <div class="brand__title">
+            Iqra Virtual School <span>(Qur'an Department)</span>
+          </div>
+          <div class="brand__subtitle">Student Progress Report Generator</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Student & Class Info -->
+    <section class="card">
+      <div class="card__head">
+        <i class="fa-solid fa-user-graduate"></i>
+        <h2>Student & Class Information</h2>
+      </div>
+
+      <div class="card__body">
+        <div class="grid grid-2">
+          <div class="field">
+            <label>Student Name</label>
+            <input id="studentName" class="input" placeholder="e.g., Fatima Ahmed" />
+          </div>
+
+          <div class="field">
+            <label>Class Timing</label>
+            <div class="inline">
+              <input type="time" id="classTimeFrom" class="input" value="09:00" step="1800" />
+              <span class="sep">to</span>
+              <input type="time" id="classTimeTo" class="input" value="09:30" step="1800" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Teacher Name</label>
+            <input id="teacherName" class="input" placeholder="e.g., Ustadh Ibrahim" />
+          </div>
+
+          <div class="field">
+            <label>Meeting Date</label>
+            <input type="date" id="meetingDate" class="input" />
+          </div>
+
+          <div class="field grid-span-2">
+            <label>Report Duration (Month & Year)</label>
+            <div class="inline">
+              <select id="reportMonthFrom" class="input">
+                <option value="">From Month</option>
+                <option>January</option><option>February</option><option>March</option><option>April</option>
+                <option>May</option><option>June</option><option>July</option><option>August</option>
+                <option>September</option><option>October</option><option>November</option><option>December</option>
+              </select>
+
+              <select id="reportYearFrom" class="input"></select>
+
+              <span class="sep">to</span>
+
+              <select id="reportMonthTo" class="input">
+                <option value="">To Month</option>
+                <option>January</option><option>February</option><option>March</option><option>April</option>
+                <option>May</option><option>June</option><option>July</option><option>August</option>
+                <option>September</option><option>October</option><option>November</option><option>December</option>
+              </select>
+
+              <select id="reportYearTo" class="input"></select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Subjects & Progress Summary -->
+    <section class="card">
+      <div class="card__head">
+        <i class="fa-solid fa-book-open"></i>
+        <h2>Subjects & Progress Summary</h2>
+      </div>
+
+      <div class="card__body">
+        <div class="table-wrap">
+          <table id="subjectsTable" class="table">
+            <thead>
+              <tr>
+                <th style="width: 180px;">Subject</th>
+                <th>Topics Covered</th>
+                <th style="width: 160px;">Progress Status</th>
+                <th>Remarks</th>
+                <th style="width: 70px;"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" type="button" id="addSubjectBtn">
+            <i class="fa-solid fa-plus"></i> Add Subject Area
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Attendance & Behavior -->
+    <section class="card">
+      <div class="card__head">
+        <i class="fa-solid fa-clipboard-check"></i>
+        <h2>Attendance & Behavior Assessment</h2>
+      </div>
+
+      <div class="card__body">
+        <div class="grid grid-2">
+          <div class="field">
+            <label>Attendance (%)</label>
+            <input id="attendance" class="input" type="number" min="0" max="100" placeholder="e.g., 95" />
+          </div>
+
+          <div class="field">
+            <label>Class Participation</label>
+            <select id="classParticipation" class="input">
+              <option value="">Select rating</option>
+              <option>Excellent</option><option>Good</option><option>Average</option><option>Needs Improvement</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Homework Submission</label>
+            <select id="homeworkSubmission" class="input">
+              <option value="">Select rating</option>
+              <option>Always on time</option><option>Mostly on time</option><option>Sometimes late</option><option>Often missing</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Manners & Respect</label>
+            <select id="mannersRespect" class="input">
+              <option value="">Select rating</option>
+              <option>Excellent</option><option>Good</option><option>Satisfactory</option><option>Needs Improvement</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Parent Feedback Questionnaire -->
+    <section class="card">
+      <div class="card__head">
+        <i class="fa-solid fa-message"></i>
+        <h2>Parent Feedback Questionnaire</h2>
+
+        <div class="edit-toggle">
+          <span class="mini">Edit Questions</span>
+          <label class="switch">
+            <input type="checkbox" id="editFeedbackToggle" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="card__body">
+        <div id="feedbackAccordion"></div>
+
+        <div class="field" style="margin-top:18px;">
+          <label>Additional Comments or Suggestions</label>
+          <textarea id="parentFeedback" class="input" rows="4"
+            placeholder="Please share any other comments, suggestions, or concerns you may have..."></textarea>
+        </div>
+
+        <div class="mini" style="text-align:center; margin-top:10px;">
+          JazakAllah Khair for helping us improve! May Allah bless your family.
+        </div>
+      </div>
+    </section>
+
+    <!-- Next Plan -->
+    <section class="card">
+      <div class="card__head">
+        <i class="fa-solid fa-bullseye"></i>
+        <h2>Next 1-Month Target Plan</h2>
+      </div>
+
+      <div class="card__body">
+        <div class="table-wrap">
+          <table id="nextPlanTable" class="table">
+            <thead>
+              <tr>
+                <th style="width: 200px;">Subject Area</th>
+                <th>Upcoming Topics / Skills</th>
+                <th style="width: 170px;">Target Deadline</th>
+                <th style="width: 70px;"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" type="button" id="addPlanBtn">
+            <i class="fa-solid fa-plus"></i> Add Target/Plan
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Generate Button -->
+    <button class="btn btn-success btn-block" type="button" id="generateBtn">
+      <i class="fa-solid fa-file-pdf"></i> Generate & Download Report
+    </button>
+
+    <footer class="footer">
+      <div>© 2026 Iqra Virtual School. All Rights Reserved.</div>
+      <div class="muted">Empowering students through knowledge and faith.</div>
+    </footer>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Quran topics scripts -->
+  <script src="./js/data-quran.js" defer></script>
+  <script src="./js/quran-surahs.js" defer></script>
+  <script src="./js/quran-juz.js" defer></script>
+  <script src="./js/topics-ui.js" defer></script>
+  
+
+  <!-- Particles -->
+  <script src="./js/particles.js" defer></script>
+
+  <!-- IMPORTANT: your main app logic -->
+  <script src="./js/app.js" defer></script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("logoutBtn");
+    const overlay = document.getElementById("loadingOverlay");
+    if (!btn) return;
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      sessionStorage.setItem("ivs_logging_out", "1");
+      overlay?.classList.add("show");
+      btn.disabled = true;
+
+      setTimeout(() => {
+        sessionStorage.removeItem("ivs_logged_in");
+        sessionStorage.removeItem("ivs_logging_out");
+        localStorage.removeItem("ivs_logged_in_remember");
+        location.href = "login.html?logout=1";
+      }, 1500);
+    });
+  });
+</script>
+
+<!-- Loading Overlay (Logout) -->
+<div class="loadingOverlay" id="loadingOverlay" aria-hidden="true">
+  <div class="loadingCard">
+    <div class="loadingLogoWrap">
+      <img src="assets/logo.jpg" alt="Iqra Virtual School" class="loadingLogo" />
+      <div class="loadingRing"></div>
+    </div>
+
+    <div class="loadingTitle" id="loadingTitle">Signing you out…</div>
+    <div class="loadingSub" id="loadingSub">Closing your session</div>
+
+    <div class="loadingDots" aria-hidden="true">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
